@@ -4,17 +4,16 @@ extern crate diesel;
 extern crate diesel_codegen;
 
 extern crate dotenv;
+extern crate icu;
 
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 
 use dotenv::dotenv;
 
-extern crate caseless;
-extern crate unicode_normalization;
+use icu::Collator;
 
 use std::env;
-use std::cmp::Ordering;
 
 pub mod schema;
 pub mod models;
@@ -61,50 +60,7 @@ pub fn create_release(conn: &PgConnection, version: &str) -> Release {
         .expect("Error saving new release")
 }
 
-
-fn char_cmp(a_char: char, b_char: char) -> Ordering {
-    let a = caseless::default_case_fold_str(&a_char.to_string());
-    let b = caseless::default_case_fold_str(&b_char.to_string());
-
-    let first_char = a.chars().nth(0).unwrap_or('{');
-
-    let order = if a == b && a.len() == 1 && 'a' <= first_char && first_char <= 'z' {
-        if a_char > b_char {
-            Ordering::Less
-        } else if a_char < b_char {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
-    } else {
-        a.cmp(&b)
-    };
-
-    order
-}
-
-fn str_cmp(a_raw: &str, b_raw: &str) -> Ordering {
-    let a: Vec<char> = a_raw.nfkd().filter(|&c| (c as u32) < 0x300 || (c as u32) > 0x36f).collect();
-    let b: Vec<char> = b_raw.nfkd().filter(|&c| (c as u32) < 0x300 || (c as u32) > 0x36f).collect();
-
-    for (&a_char, &b_char) in a.iter().zip(b.iter()) {
-        match char_cmp(a_char, b_char) {
-            Ordering::Less => return Ordering::Less,
-            Ordering::Greater => return Ordering::Greater,
-            Ordering::Equal => {}
-        }
-    }
-
-    if a.len() < b.len() {
-        Ordering::Less
-    } else if a.len() > b.len() {
-        Ordering::Greater
-    } else {
-        Ordering::Equal
-    }
-}
-
-// TODO: switch this out for an implementation of the Unicode Collation Algorithm
 pub fn inaccurate_sort(strings: &mut Vec<String>) {
-    strings.sort_by(|a, b| str_cmp(&a, &b));
+    let col = Collator::open("en").unwrap;
+    strings.sort_by(|a, b| col.cmp(&a, &b).unwrap());
 }
