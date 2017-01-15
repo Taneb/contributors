@@ -11,7 +11,7 @@ use diesel::pg::PgConnection;
 
 use dotenv::dotenv;
 
-use icu::Collator;
+use icu::collate::Collator;
 
 use std::env;
 
@@ -20,8 +20,6 @@ pub mod models;
 
 use self::models::{Commit, NewCommit};
 use self::models::{Release, NewRelease};
-
-use unicode_normalization::UnicodeNormalization;
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -61,6 +59,6 @@ pub fn create_release(conn: &PgConnection, version: &str) -> Release {
 }
 
 pub fn inaccurate_sort(strings: &mut Vec<String>) {
-    let col = Collator::open("en").unwrap;
+    let col = Collator::open("en").unwrap();
     strings.sort_by(|a, b| col.cmp(&a, &b).unwrap());
 }
